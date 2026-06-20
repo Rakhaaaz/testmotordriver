@@ -47,11 +47,9 @@
 #define IN4   33    // Direction pin 2
 #define ENB   32    // Enable / PWM speed
 
-// ========== PWM CONFIG (ESP32 LEDC) ==========
+// ========== PWM CONFIG (ESP32 Arduino Core v3.x) ==========
 #define PWM_FREQ      5000    // 5 KHz
 #define PWM_RESOLUTION 8      // 8-bit (0-255)
-#define PWM_CHANNEL_A  0      // LEDC channel for ENA
-#define PWM_CHANNEL_B  1      // LEDC channel for ENB
 
 // ========== TEST TIMING ==========
 #define TEST_DELAY    2000    // Durasi tiap test step (ms)
@@ -92,11 +90,9 @@ void setup() {
   pinMode(IN3, OUTPUT);
   pinMode(IN4, OUTPUT);
   
-  // Setup PWM channels (ESP32 LEDC)
-  ledcSetup(PWM_CHANNEL_A, PWM_FREQ, PWM_RESOLUTION);
-  ledcSetup(PWM_CHANNEL_B, PWM_FREQ, PWM_RESOLUTION);
-  ledcAttachPin(ENA, PWM_CHANNEL_A);
-  ledcAttachPin(ENB, PWM_CHANNEL_B);
+  // Setup PWM (ESP32 Arduino Core v3.x+ pakai ledcAttach)
+  ledcAttach(ENA, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttach(ENB, PWM_FREQ, PWM_RESOLUTION);
   
   // Pastikan semua OFF dulu
   stopAll();
@@ -192,37 +188,37 @@ void loop() {
 void motorA_forward(int speed) {
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
-  ledcWrite(PWM_CHANNEL_A, speed);
+  ledcWrite(ENA, speed);
 }
 
 void motorA_reverse(int speed) {
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
-  ledcWrite(PWM_CHANNEL_A, speed);
+  ledcWrite(ENA, speed);
 }
 
 void motorA_stop() {
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
-  ledcWrite(PWM_CHANNEL_A, 0);
+  ledcWrite(ENA, 0);
 }
 
 void motorB_forward(int speed) {
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
-  ledcWrite(PWM_CHANNEL_B, speed);
+  ledcWrite(ENB, speed);
 }
 
 void motorB_reverse(int speed) {
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
-  ledcWrite(PWM_CHANNEL_B, speed);
+  ledcWrite(ENB, speed);
 }
 
 void motorB_stop() {
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
-  ledcWrite(PWM_CHANNEL_B, 0);
+  ledcWrite(ENB, 0);
 }
 
 void stopAll() {
@@ -322,7 +318,7 @@ void testPWMRamp() {
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   for (int speed = 0; speed <= 255; speed += 5) {
-    ledcWrite(PWM_CHANNEL_A, speed);
+    ledcWrite(ENA, speed);
     Serial.print("    Speed: ");
     Serial.print(speed);
     Serial.print("/255 (");
@@ -334,7 +330,7 @@ void testPWMRamp() {
   // Motor A ramp down
   Serial.println("  Motor A → Ramp DOWN (255 → 0)");
   for (int speed = 255; speed >= 0; speed -= 5) {
-    ledcWrite(PWM_CHANNEL_A, speed);
+    ledcWrite(ENA, speed);
     delay(RAMP_DELAY);
   }
   motorA_stop();
@@ -345,7 +341,7 @@ void testPWMRamp() {
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
   for (int speed = 0; speed <= 255; speed += 5) {
-    ledcWrite(PWM_CHANNEL_B, speed);
+    ledcWrite(ENB, speed);
     Serial.print("    Speed: ");
     Serial.print(speed);
     Serial.print("/255 (");
@@ -357,7 +353,7 @@ void testPWMRamp() {
   // Motor B ramp down
   Serial.println("  Motor B → Ramp DOWN (255 → 0)");
   for (int speed = 255; speed >= 0; speed -= 5) {
-    ledcWrite(PWM_CHANNEL_B, speed);
+    ledcWrite(ENB, speed);
     delay(RAMP_DELAY);
   }
   motorB_stop();
@@ -376,8 +372,8 @@ void fullAutoTest() {
   Serial.println("  [PIN] IN1 (GPIO 27) → HIGH");
   digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);  digitalWrite(IN4, LOW);
-  ledcWrite(PWM_CHANNEL_A, 0);
-  ledcWrite(PWM_CHANNEL_B, 0);
+  ledcWrite(ENA, 0);
+  ledcWrite(ENB, 0);
   delay(1000);
   Serial.println("    → Cek: IN1 harusnya HIGH (3.3V)");
   
@@ -399,17 +395,17 @@ void fullAutoTest() {
   
   Serial.println("  [PIN] ENA (GPIO 14) → PWM 255");
   digitalWrite(IN4, LOW);
-  ledcWrite(PWM_CHANNEL_A, 255);
+  ledcWrite(ENA, 255);
   delay(1000);
   Serial.println("    → Cek: ENA harusnya HIGH (3.3V)");
   
   Serial.println("  [PIN] ENB (GPIO 32) → PWM 255");
-  ledcWrite(PWM_CHANNEL_A, 0);
-  ledcWrite(PWM_CHANNEL_B, 255);
+  ledcWrite(ENA, 0);
+  ledcWrite(ENB, 255);
   delay(1000);
   Serial.println("    → Cek: ENB harusnya HIGH (3.3V)");
   
-  ledcWrite(PWM_CHANNEL_B, 0);
+  ledcWrite(ENB, 0);
   stopAll();
   Serial.println("  ✅ Individual pin test DONE");
   Serial.println();
@@ -440,7 +436,7 @@ void fullAutoTest() {
   // Brake = kedua IN HIGH
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, HIGH);
-  ledcWrite(PWM_CHANNEL_A, 255);
+  ledcWrite(ENA, 255);
   Serial.println("    → IN1=HIGH, IN2=HIGH = BRAKE (motor ngerem)");
   delay(1500);
   motorA_stop();
@@ -451,7 +447,7 @@ void fullAutoTest() {
   delay(1500);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, HIGH);
-  ledcWrite(PWM_CHANNEL_B, 255);
+  ledcWrite(ENB, 255);
   Serial.println("    → IN3=HIGH, IN4=HIGH = BRAKE (motor ngerem)");
   delay(1500);
   motorB_stop();
