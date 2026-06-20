@@ -1,12 +1,14 @@
-// test.ino - First test commit from VPS
-// Motor driver test scaffold
+// test.ino - Motor driver test
+// Hallo test from Lihana VPS
 
 void setup() {
   Serial.begin(9600);
-  Serial.println("Hallo dari Lihana VPS!");
-  Serial.println("Ready for motor driver test...");
+  Serial.println("hallo");
+  Serial.println("Motor driver test ready...");
 }
 
 void loop() {
-  // Test code will go here
+  // Loop test
+  Serial.println("hallo dari loop");
+  delay(2000);
 }
