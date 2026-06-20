@@ -34,16 +34,6 @@
  *   'p' = PWM Speed Test (gradual)
  *   's' = Stop All
  *   'f' = Full Auto Test (semua)
- *   'i' = Info (status semua pin)
- * 
- * NEW: LED Indicator + Emergency Stop Button
- * ┌──────────┬──────────┐
- * │  ESP32   │  Fungsi  │
- * ├──────────┼──────────┤
- * │  GPIO 2  │  LED Built-in (status) │
- * │  GPIO 4  │  LED Hijau (motor aktif)│
- * │  GPIO 15 │  Button Emergency Stop  │
- * └──────────┴──────────┘
  */
 
 // ========== PIN DEFINITIONS ==========
@@ -56,11 +46,6 @@
 #define IN3   25    // Direction pin 1
 #define IN4   33    // Direction pin 2
 #define ENB   32    // Enable / PWM speed
-
-// LED & Button
-#define LED_BUILTIN_PIN  2    // LED bawaan ESP32
-#define LED_STATUS       4    // LED hijau (motor aktif)
-#define BTN_ESTOP       15    // Tombol emergency stop (pull-up)
 
 // ========== PWM CONFIG (ESP32 LEDC) ==========
 #define PWM_FREQ      5000    // 5 KHz
@@ -87,13 +72,6 @@ void testPWMRamp();
 void fullAutoTest();
 void printHeader(const char* title);
 void printPinStatus();
-void printInfo();
-void checkEmergencyStop();
-void blinkLED(int times, int delayMs);
-
-// ========== GLOBAL STATE ==========
-bool motorsActive = false;
-bool emergencyMode = false;
 
 // ========== SETUP ==========
 void setup() {
@@ -113,15 +91,6 @@ void setup() {
   pinMode(IN2, OUTPUT);
   pinMode(IN3, OUTPUT);
   pinMode(IN4, OUTPUT);
-  
-  // Setup LED & Button
-  pinMode(LED_BUILTIN_PIN, OUTPUT);
-  pinMode(LED_STATUS, OUTPUT);
-  pinMode(BTN_ESTOP, INPUT_PULLUP);  // Active LOW (tekan = GND)
-  
-  // LED startup animation
-  blinkLED(3, 200);
-  digitalWrite(LED_BUILTIN_PIN, HIGH);  // ON = ready
   
   // Setup PWM channels (ESP32 LEDC)
   ledcSetup(PWM_CHANNEL_A, PWM_FREQ, PWM_RESOLUTION);
@@ -143,7 +112,6 @@ void setup() {
   Serial.println("│ 'p' = PWM Speed Ramp Test   │");
   Serial.println("│ 's' = Stop All              │");
   Serial.println("│ 'f' = Full Auto Test        │");
-  Serial.println("│ 'i' = Info Status Pin       │");
   Serial.println("└─────────────────────────────┘");
   Serial.println();
   Serial.println(">> Ketik command di Serial Monitor...");
@@ -167,9 +135,6 @@ void setup() {
 
 // ========== LOOP ==========
 void loop() {
-  // Cek emergency stop button setiap loop
-  checkEmergencyStop();
-  
   if (Serial.available()) {
     char cmd = Serial.read();
     
@@ -208,11 +173,6 @@ void loop() {
         fullAutoTest();
         break;
         
-      case 'i':
-      case 'I':
-        printInfo();
-        break;
-        
       default:
         Serial.print("❌ Command tidak dikenal: '");
         Serial.print(cmd);
@@ -233,16 +193,12 @@ void motorA_forward(int speed) {
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
   ledcWrite(PWM_CHANNEL_A, speed);
-  motorsActive = true;
-  digitalWrite(LED_STATUS, HIGH);  // LED hijau ON
 }
 
 void motorA_reverse(int speed) {
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, HIGH);
   ledcWrite(PWM_CHANNEL_A, speed);
-  motorsActive = true;
-  digitalWrite(LED_STATUS, HIGH);
 }
 
 void motorA_stop() {
@@ -255,16 +211,12 @@ void motorB_forward(int speed) {
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
   ledcWrite(PWM_CHANNEL_B, speed);
-  motorsActive = true;
-  digitalWrite(LED_STATUS, HIGH);
 }
 
 void motorB_reverse(int speed) {
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
   ledcWrite(PWM_CHANNEL_B, speed);
-  motorsActive = true;
-  digitalWrite(LED_STATUS, HIGH);
 }
 
 void motorB_stop() {
@@ -276,8 +228,6 @@ void motorB_stop() {
 void stopAll() {
   motorA_stop();
   motorB_stop();
-  motorsActive = false;
-  digitalWrite(LED_STATUS, LOW);   // LED hijau OFF
 }
 
 // ========== TEST FUNCTIONS ==========
@@ -557,112 +507,5 @@ void printPinStatus() {
   Serial.print(PWM_RESOLUTION);
   Serial.println("-bit (0-255)  │");
   Serial.println("└────────────────────────────┘");
-  Serial.println();
-}
-
-// ========== EMERGENCY STOP ==========
-void checkEmergencyStop() {
-  // Button active LOW (tekan = GND karena INPUT_PULLUP)
-  if (digitalRead(BTN_ESTOP) == LOW) {
-    delay(50);  // Debounce
-    if (digitalRead(BTN_ESTOP) == LOW) {
-      stopAll();
-      emergencyMode = true;
-      
-      Serial.println();
-      Serial.println("🚨🚨🚨 EMERGENCY STOP ACTIVATED! 🚨🚨🚨");
-      Serial.println("   Semua motor DIHENTIKAN!");
-      Serial.println("   Lepas tombol untuk lanjut...");
-      
-      // Blink LED cepat selama tombol ditekan
-      while (digitalRead(BTN_ESTOP) == LOW) {
-        digitalWrite(LED_BUILTIN_PIN, !digitalRead(LED_BUILTIN_PIN));
-        delay(100);
-      }
-      
-      digitalWrite(LED_BUILTIN_PIN, HIGH);  // LED kembali normal
-      emergencyMode = false;
-      Serial.println("   ✅ Emergency stop released. Ready.");
-      Serial.println();
-    }
-  }
-}
-
-// ========== LED BLINK ==========
-void blinkLED(int times, int delayMs) {
-  for (int i = 0; i < times; i++) {
-    digitalWrite(LED_BUILTIN_PIN, HIGH);
-    delay(delayMs);
-    digitalWrite(LED_BUILTIN_PIN, LOW);
-    delay(delayMs);
-  }
-}
-
-// ========== INFO STATUS ==========
-void printInfo() {
-  Serial.println();
-  Serial.println("╔══════════════════════════════════════════╗");
-  Serial.println("║           STATUS INFO                    ║");
-  Serial.println("╠══════════════════════════════════════════╣");
-  
-  Serial.print("║  Motor Active : ");
-  Serial.println(motorsActive ? "YES ▶️  ║" : "NO  ⏹️  ║");
-  
-  Serial.print("║  Emergency    : ");
-  Serial.println(emergencyMode ? "YES 🚨 ║" : "NO  ✅ ║");
-  
-  Serial.println("║                                          ║");
-  Serial.println("║  Pin Readings:                           ║");
-  
-  Serial.print("║   IN1 (GPIO ");
-  Serial.print(IN1);
-  Serial.print("): ");
-  Serial.println(digitalRead(IN1) ? "HIGH  ║" : "LOW   ║");
-  
-  Serial.print("║   IN2 (GPIO ");
-  Serial.print(IN2);
-  Serial.print("): ");
-  Serial.println(digitalRead(IN2) ? "HIGH  ║" : "LOW   ║");
-  
-  Serial.print("║   IN3 (GPIO ");
-  Serial.print(IN3);
-  Serial.print("): ");
-  Serial.println(digitalRead(IN3) ? "HIGH  ║" : "LOW   ║");
-  
-  Serial.print("║   IN4 (GPIO ");
-  Serial.print(IN4);
-  Serial.print("): ");
-  Serial.println(digitalRead(IN4) ? "HIGH  ║" : "LOW   ║");
-  
-  Serial.print("║   ENA (GPIO ");
-  Serial.print(ENA);
-  Serial.print("): PWM CH");
-  Serial.println(PWM_CHANNEL_A);
-  
-  Serial.print("║   ENB (GPIO ");
-  Serial.print(ENB);
-  Serial.print("): PWM CH");
-  Serial.println(PWM_CHANNEL_B);
-  
-  Serial.print("║   E-STOP (GPIO ");
-  Serial.print(BTN_ESTOP);
-  Serial.print("): ");
-  Serial.println(digitalRead(BTN_ESTOP) ? "RELEASED ║" : "PRESSED  ║");
-  
-  Serial.print("║   LED Built-in: ");
-  Serial.println(digitalRead(LED_BUILTIN_PIN) ? "ON   ║" : "OFF  ║");
-  
-  Serial.print("║   LED Status  : ");
-  Serial.println(digitalRead(LED_STATUS) ? "ON   ║" : "OFF  ║");
-  
-  Serial.println("║                                          ║");
-  Serial.print("║  Uptime: ");
-  unsigned long sec = millis() / 1000;
-  Serial.print(sec / 60);
-  Serial.print("m ");
-  Serial.print(sec % 60);
-  Serial.println("s                          ║");
-  
-  Serial.println("╚══════════════════════════════════════════╝");
   Serial.println();
 }
